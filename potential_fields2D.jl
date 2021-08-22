@@ -1,57 +1,79 @@
-module Potentials2D
-    export make_U_doubleslit
+module Solver2D
+export ADI_solver, Pseudospec_FFT
+# const m, ħ = 1, 1
+Threads.nthreads()
+    using LinearAlgebra, FFTW
 
-    function make_U_doubleslit(par, x_pos, slit_size, slit_width)
+    Base.@kwdef mutable struct Solver_Params
+        par = init_params
+        Nx::Int32 = par.Nx
+        Ny::Int32 = par.Ny
+        V::Array{Float64,2} = par.potential_field
 
-        V = zeros(par.Nx,par.Ny)
-        x_pos = x_pos*par.Nx / par.x_max
-        slit_size = (par.Nx-1)*slit_size/maximum(par.x)
-        width = slit_width*(par.Nx-1)/par.y_max
-        pos_main = Int32(round(x_pos))
-        pos = Int32(floor(par.Nx*.5))+1
-        println((slit_size)/2, "\t", Int32(round((slit_size)/2)) , "\t Values must be the same for slit_width accuracy- Ensure 1/slit_width = integer")
-        gap = Int32(round((slit_size)/2))
-        println(width, "\t", Int32(round(width)), "\t Values must be the same for slit_size accuracy- Ensure 1/slit_size = integer")
-        width = Int32(round(width))
-        for i in 1:width
-            V[ : , pos_main+i] .= 1000
-            V[pos+gap:pos+gap, pos_main+i] .= 0
-            V[pos-gap:pos-gap, pos_main+i] .= 0
-            # V[pos_main+i, : ] .= 1000
-            # V[pos_main+i, pos+gap:pos+3gap] .= 0
-            # V[pos_main+i, pos-3gap:pos-gap] .= 0
+        ############### FDM ADI METHOD ##################################
+        λ::Float64 = (2par.dx^2) / par.dt
+        A::Array{ComplexF64,2} = diff_matrix(1+2im/λ, -im/λ, Nx, Ny)
+        B::Array{ComplexF64,2} = diff_matrix(1-2im/λ, im/λ, Nx, Ny)
+        C::Array{ComplexF64,2} = B / A
+        U_a::Array{ComplexF64,2}  = exp.(im*par.dt*V/2)
+        U_b::Array{ComplexF64,2}  = exp.(-im*par.dt*V/2)
+        ################ PS FFT METHOD ###################################
+        k = [ collect(0:((par.Nx-1)/2)) ; collect(-(par.Nx)/2:-1) ] *2π/(par.Nx*par.dx)
+        FFT_a = exp.(-im.*k.^2*par.dt/4) 
+        FFT_U = exp.(-im*V*par.dt/2)
+    end
+
+    # Constructs finite difference matrix ≡ 1D discrete laplacian matrix
+    function diff_matrix(diag,offdiag, Nx, Ny)
+        A = zeros(ComplexF64, Nx, Ny)
+        A[diagind(A,0)] .= diag
+        A[diagind(A,1)] .= A[diagind(A,-1)] .= offdiag
+        return A
+    end
+
+    function ADI_solver(ψ, Solv_par::Solver_Params)
+        #Threads.@threads for i in 2:par.Nx-1
+        for i in 2:Solv_par.Nx-1
+            tmp_ψ = ψ[ : , i ]
+            ψ[ : , i ] = Solv_par.C * tmp_ψ
         end
-        return V
+        #Threads.@threads for j in 2:par.Ny-1
+        for j in 2:Solv_par.Ny-1
+            tmp_ψ = ψ[ j , : ]
+            ψ[ j , : ] = Solv_par.C * tmp_ψ
+            ψ[ j , : ] = (ψ[ j , : ]) .* (Solv_par.U_b[ j , : ] ./ Solv_par.U_a[ j , : ])
+        end
+        return ψ
     end
+
+    function Pseudospec_FFT(ψ, Solv_par::Solver_Params)
+        
+        for i in 2:Solv_par.Nx-1
+            tmp_ψ = fft(ψ[ : , i ])
+            ψ[ : , i ] =Solv_par.FFT_a.*tmp_ψ
+        end
+
+        for j in 2:Solv_par.Ny-1
+            tmp_ψ = fft(ψ[ j , : ])
+            ψ[ j , : ] = Solv_par.FFT_a .* tmp_ψ
+
+        end
+        ψ = Solv_par.FFT_U .* ifft(ψ)
+        ψ = Solv_par.FFT_a .* fft(ψ)
+        return ifft(ψ)
+
+        # for i in 2:Solv_par.Nx-1
+        #     tmp_ψ = fft(ψ[ : , i ])
+        #     ψ[ : , i ] =Solv_par.FFT_a.*tmp_ψ
+        # end
+
+        # for j in 2:Solv_par.Ny-1
+        #     tmp_ψ = fft(ψ[ j , : ])
+        #     ψ[ j , : ] = Solv_par.FFT_a .* tmp_ψ
+        #     ψ[ j , : ] = (ψ[ j , : ]) .* (Solv_par.U_b[ j , : ] ./ Solv_par.U_a[ j , : ])
+        # end
+        # return ifft(ψ)
+
+    end
+
 end
-
-
-function make_U_doubleslit(par, x_pos, slit_size, slit_width)
-    N=11
-    slit_size=2
-    width=1
-    x_pos=3
-    x_max = 22
-    y_max=20
-    slit_width=3
-    V = zeros(N, N)
-    x_pos = x_pos*N / x_max
-    slit_size = (N-1)*slit_size/x_max
-    width = slit_width*(N-1)/y_max
-    pos_main = Int32(round(x_pos))
-    pos = Int32(floor(N*.5))+1
-    #println(pos, "\tMust be odd integer")
-    println((slit_size)/2, "\t", Int32(round((slit_size)/2)) , "\t Values must be the same for slit_width accuracy- Ensure 1/slit_width = integer")
-    gap = Int32(round((slit_size)/2))
-    println(width, "\t", Int32(round(width)), "\t Values must be the same for slit_size accuracy- Ensure 1/slit_size = integer")
-    width = Int32(round(width))
-    #println(V[pos+gap:pos+3gap, pos_main+width])
-    for i in 0:width
-        V[ : , pos_main+i] .= 1000
-        V[pos+gap:pos+3gap, pos_main+i] .= 0
-        V[pos-3gap:pos-gap, pos_main+i] .= 0
-        # V[pos_main+i, : ] .= 1000
-        # V[pos_main+i, pos+gap:pos+3gap] .= 0
-        # V[pos_main+i, pos-3gap:pos-gap] .= 0
-    end
-    V
