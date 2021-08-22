@@ -1,79 +1,67 @@
-module Solver2D
-export ADI_solver, Pseudospec_FFT
-# const m, ħ = 1, 1
-Threads.nthreads()
-    using LinearAlgebra, FFTW
+module Potentials2D
+    export make_U_doubleslit
 
-    Base.@kwdef mutable struct Solver_Params
-        par = init_params
-        Nx::Int32 = par.Nx
-        Ny::Int32 = par.Ny
-        V::Array{Float64,2} = par.potential_field
+    # Constructs the double slit potential field. 
+    # par : initial params in main.jl, required for domain values (Nx, Ny, x/y_min, x/y_max)
+    # barrier_pos : user defined position barrier is centered at (in graphs coordinates x, y)
+    # barrier_width : width of barrier (in graphs coordinates x, y)
+    # slit_gap : size of slits (in graphs coordinates x, y)
+    
+    function doubleslit_potential(par, barrier_pos, barrier_width , slit_gap)
+        V = par.potential_field
+        x_total_length = abs(par.x_max-par.x_min)
+        y_total_length = abs(par.y_max-par.y_min)
 
-        ############### FDM ADI METHOD ##################################
-        λ::Float64 = (2par.dx^2) / par.dt
-        A::Array{ComplexF64,2} = diff_matrix(1+2im/λ, -im/λ, Nx, Ny)
-        B::Array{ComplexF64,2} = diff_matrix(1-2im/λ, im/λ, Nx, Ny)
-        C::Array{ComplexF64,2} = B / A
-        U_a::Array{ComplexF64,2}  = exp.(im*par.dt*V/2)
-        U_b::Array{ComplexF64,2}  = exp.(-im*par.dt*V/2)
-        ################ PS FFT METHOD ###################################
-        k = [ collect(0:((par.Nx-1)/2)) ; collect(-(par.Nx)/2:-1) ] *2π/(par.Nx*par.dx)
-        FFT_a = exp.(-im.*k.^2*par.dt/4) 
-        FFT_U = exp.(-im*V*par.dt/2)
-    end
-
-    # Constructs finite difference matrix ≡ 1D discrete laplacian matrix
-    function diff_matrix(diag,offdiag, Nx, Ny)
-        A = zeros(ComplexF64, Nx, Ny)
-        A[diagind(A,0)] .= diag
-        A[diagind(A,1)] .= A[diagind(A,-1)] .= offdiag
-        return A
-    end
-
-    function ADI_solver(ψ, Solv_par::Solver_Params)
-        #Threads.@threads for i in 2:par.Nx-1
-        for i in 2:Solv_par.Nx-1
-            tmp_ψ = ψ[ : , i ]
-            ψ[ : , i ] = Solv_par.C * tmp_ψ
-        end
-        #Threads.@threads for j in 2:par.Ny-1
-        for j in 2:Solv_par.Ny-1
-            tmp_ψ = ψ[ j , : ]
-            ψ[ j , : ] = Solv_par.C * tmp_ψ
-            ψ[ j , : ] = (ψ[ j , : ]) .* (Solv_par.U_b[ j , : ] ./ Solv_par.U_a[ j , : ])
-        end
-        return ψ
-    end
-
-    function Pseudospec_FFT(ψ, Solv_par::Solver_Params)
+        # Gets the y_midpoint and converts to domain coordinates
+        # Used to define origin point for constructing slit placement
+        y_mid = abs(par.y_max-par.y_min)/2
+        y_mid = Int32(round( (par.Ny+1)*(y_mid/y_total_length) ))
         
-        for i in 2:Solv_par.Nx-1
-            tmp_ψ = fft(ψ[ : , i ])
-            ψ[ : , i ] =Solv_par.FFT_a.*tmp_ψ
-        end
+        # Converts barrier graph coordinates (x, y) to domain coordinates (Nx, Ny)
+        barrier_pos   = Int32(round( par.Nx*(abs(barrier_pos-par.x_min)/x_total_length ) ))
+        barrier_width = Int32(round( par.Nx*barrier_width/x_total_length ))
+        slit_gap      = Int32(round( ((par.Ny-2)*( slit_gap/y_total_length )) /2 ))
+        
+        # Fills in potential field at given domain coordinates
+        V[ : ,                             barrier_pos:barrier_pos+barrier_width] .= 1000
+        V[y_mid-3slit_gap:y_mid-slit_gap, barrier_pos:barrier_pos+barrier_width] .= 0
+        V[y_mid+slit_gap:y_mid+3slit_gap, barrier_pos:barrier_pos+barrier_width] .= 0
 
-        for j in 2:Solv_par.Ny-1
-            tmp_ψ = fft(ψ[ j , : ])
-            ψ[ j , : ] = Solv_par.FFT_a .* tmp_ψ
-
-        end
-        ψ = Solv_par.FFT_U .* ifft(ψ)
-        ψ = Solv_par.FFT_a .* fft(ψ)
-        return ifft(ψ)
-
-        # for i in 2:Solv_par.Nx-1
-        #     tmp_ψ = fft(ψ[ : , i ])
-        #     ψ[ : , i ] =Solv_par.FFT_a.*tmp_ψ
-        # end
-
-        # for j in 2:Solv_par.Ny-1
-        #     tmp_ψ = fft(ψ[ j , : ])
-        #     ψ[ j , : ] = Solv_par.FFT_a .* tmp_ψ
-        #     ψ[ j , : ] = (ψ[ j , : ]) .* (Solv_par.U_b[ j , : ] ./ Solv_par.U_a[ j , : ])
-        # end
-        # return ifft(ψ)
-
+        return transpose(V)
     end
 
+    function oscillator_2D(par, mag)
+        V  = par.potential_field
+        V .= [0.5*mag*(x^2 + y^2 ) for x in par.x, y in par.y] 
+    end
+
+    # Constructs the cylindrical potential. 
+    # par : initial params in main.jl, required for domain values (Nx, Ny, x/y_min, x/y_max)
+    # pos_x, pos_y : origin point of circle (in graphs coordinates x, y)
+    # radius : radius of circle (in graphs coordinates x, y)
+    # U_magnitude : magnitude of potential field
+
+    function cylinder_potential(par, pos_y, pos_x, radius, U_magnitude)
+        V = par.potential_field
+        x_total_length = abs(par.x_max-par.x_min)
+        y_total_length = abs(par.y_max-par.y_min)
+
+        # Gets center of circle points (a,b) and radius (r) as domain coordinates
+        a = par.Nx * abs(pos_x - par.x_min) / x_total_length
+        b = par.Ny * abs(pos_y - par.y_min) / y_total_length
+        r = radius * (par.Nx / x_total_length)
+
+        # Goes through each coordinate in 2D array and 
+        # fills in the potential magnitude when the following circle formula is satisfied.. 
+        for i in 1:par.Nx
+            for j in 1:par.Ny
+                if abs.((i-a)^2 + (j-b)^2) < r^2
+                    V[j,i] = U_magnitude
+                end
+            end
+        end
+        return V
+    end
 end
+
+
