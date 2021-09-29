@@ -1,6 +1,5 @@
 module Potentials2D
-    export make_U_doubleslit
-
+    
     # Constructs the double slit potential field. 
     # par : initial params in main.jl, required for domain values (Nx, Ny, x/y_min, x/y_max)
     # barrier_pos : user defined position barrier is centered at (in graphs coordinates x, y)
@@ -30,7 +29,7 @@ module Potentials2D
         return transpose(V)
     end
 
-    function oscillator_2D(par, mag)
+    function potential_well_2D(par, mag)
         V  = par.potential_field
         V .= [0.5*mag*(x^2 + y^2 ) for x in par.x, y in par.y] 
     end
@@ -51,8 +50,8 @@ module Potentials2D
         b = par.Ny * abs(pos_y - par.y_min) / y_total_length
         r = radius * (par.Nx / x_total_length)
 
-        # Goes through each coordinate in 2D array and 
-        # fills in the potential magnitude when the following circle formula is satisfied.. 
+        # Goes through each coordinate in 2D array and fills in the user defined 
+        # potential magnitude if the following circle formula is satisfied
         for i in 1:par.Nx
             for j in 1:par.Ny
                 if abs.((i-a)^2 + (j-b)^2) < r^2
