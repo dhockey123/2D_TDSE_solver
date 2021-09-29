@@ -43,6 +43,8 @@ Threads.nthreads()
             ψ[ j , : ] = Solv_par.C * ψ[ j , : ]
             ψ[ j , : ] = (ψ[ j , : ]) .* (Solv_par.U_b[ j , : ] ./ Solv_par.U_a[ j , : ])
         end
+        
+
         return ψ
     end
 
@@ -77,11 +79,11 @@ Threads.nthreads()
 
     end
 
-    # function boundary(diag, offdiag)
-    #     return [diag; offdiag]
-    # end
+    function boundary(diag, offdiag)
+        return [diag; offdiag]
+    end
 
-    # # Attempt at one-way boundaries along single axis
+    # Attempt at one-way boundaries along single axis
 
     # function ADI_solver(ψ, par, Solv_par::Solver_Params)
     # #function ADI_solver(ψ, par, Solv_par)
