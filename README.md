@@ -59,11 +59,7 @@ FFTW    v1.4.3
 # References for ADI solver
 
 ```
-Fevens T, Jiang H. Absorbing Boundary Conditions for the Schrödinger Equation. SIAM Journal on Scientific Computing. 1999;21(1):255-282.
-
-Kuska J. Absorbing boundary conditions for the Schrödinger equation on finite intervals. Physical Review B. 1992;46(8):5000-5003.
-
-Shibata T. Absorbing boundary conditions for the finite-difference time-domain calculation of the one-dimensional Schrödinger equation. Physical Review B. 1991;43(8):6760-6763.
+Galbraith I, Ching Y, Abraham E. Two‐dimensional time‐dependent quantum‐mechanical scattering event. American Journal of Physics. 1984;52(1):60-68. 
 ```
 
 
