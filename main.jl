@@ -136,7 +136,8 @@ function animate_plot(draw_barrier)
     ax_22  = Axis3(fig[6:10, 6:10], title = "|Ψ|²",tellwidth=true)
 
     # 
-    fringe_pos = Utils.draw_intensity_fringes(init_params[], intensity_slider.slider.value[])
+    fringe_pos = Utils.draw_interference_fringes(init_params[], intensity_slider.slider.value[])
+    lines!(ax_11, [(intensity_slider.slider.value[], init_params[].y_min),(intensity_slider.slider.value[], init_params[].y_max)],  linestyle = :dash)
     ylims!(ax_12, 0, 0.5)
     hideydecorations!(ax_12, ticks = false)
 
@@ -162,10 +163,9 @@ function animate_plot(draw_barrier)
     # Initialise struct in potential_fields.jl
     Solver_par = Solver2D.Solver_Params(par = init_params[])
 
-    lines!(ax_11, [(intensity_slider.slider.value[], init_params[].y_min),(intensity_slider.slider.value[], init_params[].y_max)],  linestyle = :dash)
-
+    
     # Initialize observable nodes for updating plot coordinates
-
+    
     ψ_real          = Node(real.(init_params[].ψ))
     ψ_imag          = Node(imag.(init_params[].ψ))
     ψ_abs           = Node(abs.(init_params[].ψ))
@@ -183,10 +183,10 @@ function animate_plot(draw_barrier)
             if solver_menu.selection[] == "Pseudospec_FFT" 
                 init_params[].ψ = Solver2D.Pseudospec_FFT(init_params[].ψ, Solver_par)
             elseif solver_menu.selection[] == "ADI_solver"
-                init_params[].ψ = Solver2D.ADI_solver(init_params[].ψ, init_params[], Solver_par)
+                init_params[].ψ = Solver2D.ADI_solver(init_params[].ψ, Solver_par)
             end         
 
-            # Updates plots at each time step
+            # Updates plots at each time
             ψ_real[] = real.(init_params[].ψ) 
             ψ_imag[] = imag.(init_params[].ψ) 
             ψ_abs[]  = abs.(init_params[].ψ) 
