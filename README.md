@@ -19,11 +19,11 @@ User interaction is enabled for specifying the following,
 ### Domain parameters
 ```
 N     : Number of grid points along each axis ( N = Nx = Ny )
-Nt    : Number of time steps
 t_max : Simulated runtime
 x, x  : Boundary points of domain along x-axis
 y, y  : Boundary points of domain along y-axis
 ```
+The time step is dependent on the value Δx, such that Δt = 0.5Δx^2. This is done to ensure numerical stability for the ADI solver, more details can be found in referenced article.
 
 ### Wave parameters
 ```
